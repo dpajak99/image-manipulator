@@ -71,11 +71,16 @@ def getSmallerImages(image):
     image.image = Image.fromarray(image.imageArray, "L")
     return image
 
+class ImageL:
+    def __init__(self, image, lv, lh, lmax):
+        self.image = image
+        self.lv = lv
+        self.lh = lh
+        self.lmax = lmax
 
 def getImageObjects(image):
     _allColors = image.getImageColors()
     _objectArray = []
-    _LArray = []
 
     for color in _allColors:
         _widthStart = 0
@@ -103,7 +108,14 @@ def getImageObjects(image):
                 else:
                     _row.append(0)
             _object.append(_row)
-        _objectArray.append(_object)
+
+        _lv = _widthEnd - _widthStart
+        _lh = _heightEnd - _heightStart
+        _lmax = _lv if _lv > _lh else _lh
+
+        imageL = ImageL(_object, _lv, _lh, _lmax)
+        _objectArray.append(imageL)
+
     return _objectArray
 
 
@@ -121,9 +133,12 @@ def findCenter(image):
     # Obliczanie momentów geometrycznych
     for x in range(1, image.size[1] - 1):
         for y in range(1, image.size[0] - 1):
-            m00 = m00 + imageArray[x, y]
-            m10 = m10 + (x * imageArray[x, y])
-            m01 = m01 + (y * imageArray[x, y])
+            _pixel = 0
+            if imageArray[x, y] != 0:
+                _pixel = 1
+            m00 = m00 + _pixel
+            m10 = m10 + (x * _pixel)
+            m01 = m01 + (y * _pixel)
 
     # print(m00)
     # print(m10)
@@ -153,7 +168,7 @@ def findCenter(image):
 
     # TODO Poprawić jakoś tą "L" żeby było bardziej unikalne
     transformedImage = Image.fromarray(imageArray, "L")
-    return transformedImage, [i, j]
+    return transformedImage, [i, j], [m00, m01, m10]
 
 
 def prettyWhite(array):
@@ -166,16 +181,21 @@ def prettyWhite(array):
 
 
 class ImageObject:
-    def __init__(self, image, imageEdge, size, surfaceArea, circuit, center):
+    def __init__(self, image, imageEdge, size, surfaceArea, circuit, center, lobject, mParameters):
         self.image = image
         self.imageEdges = imageEdge
         self.size = size
         self.surfaceArea = surfaceArea
         self.circuit = circuit
         self.center = center
+        self.lobject = lobject
+        self.mParameters = mParameters
 
         self.w3 = (circuit / (2 * math.sqrt(math.pi * surfaceArea))) - 1
+        self.w8 = lobject.lmax / circuit
         self.w9 = (2 * math.sqrt(math.pi * surfaceArea))/circuit
+        self.w10 = lobject.lh / lobject.lv
+
 
 
 class ListViewRow(tk.Frame):
@@ -183,37 +203,76 @@ class ListViewRow(tk.Frame):
         super().__init__(parent)
         self.grid()
 
+        LABEL_ANCHOR = "w"
+
         self.columnconfigure(0, minsize=120)
         self.columnconfigure(1, minsize=120)
+        self.columnconfigure(2, minsize=200, weight=3)
+        self.columnconfigure(3, minsize=250, weight=3)
 
         self.canvas = Canvas(self, width=imageObject.size[0], height=imageObject.size[1])
-        self.canvas.grid(row=1, column=0, rowspan=3)
+        self.canvas.grid(row=1, column=0, rowspan=3,sticky=W)
         self.canvas.create_image(0, 0, anchor=NW, image=imageObject.image)
 
         self.canvasEdges = Canvas(self, width=imageObject.size[0], height=imageObject.size[1])
-        self.canvasEdges.grid(row=1, column=1, rowspan=3)
+        self.canvasEdges.grid(row=1, column=1, rowspan=3,sticky=W)
         self.canvasEdges.create_image(0, 0, anchor=NW, image=imageObject.imageEdges)
 
         textSurface = "Pole powierzchni: " + str(imageObject.surfaceArea)
-        self.surfaceLabel = Label(self, text=textSurface)
-        self.surfaceLabel.grid(row=1, column=2)
+        self.surfaceLabel = Label(self, text=textSurface, anchor=LABEL_ANCHOR)
+        self.surfaceLabel.grid(row=1, column=2, sticky=W)
 
         textCircuit = "Obwód: " + str(imageObject.circuit)
-        self.circuitLabel = Label(self, text=textCircuit)
-        self.circuitLabel.grid(row=2, column=2)
+        self.circuitLabel = Label(self, text=textCircuit, anchor=LABEL_ANCHOR)
+        self.circuitLabel.grid(row=2, column=2,sticky=W)
+
+        textLh = "Lh = " + str(imageObject.lobject.lh)
+        self.lhLabel = Label(self, text=textLh, anchor=LABEL_ANCHOR)
+        self.lhLabel.grid(row=3, column=2,sticky=W)
+
+        textLv = "Lv = " + str(imageObject.lobject.lv)
+        self.lvLabel = Label(self, text=textLv, anchor=LABEL_ANCHOR)
+        self.lvLabel.grid(row=4, column=2,sticky=W)
+
+        textLmax = "Lmax = " + str(imageObject.lobject.lmax)
+        self.lmaxLabel = Label(self, text=textLmax, anchor=LABEL_ANCHOR)
+        self.lmaxLabel.grid(row=5, column=2,sticky=W)
+
+        self.separator = ttk.Separator(self, orient='horizontal')
+        self.separator.grid(row=6, column=0, columnspan=6, sticky=EW, pady=10)
+        # -------------------------------------------
+        textm00 = "m00 = " + str(imageObject.mParameters[0])
+        self.m00Label = Label(self, text=textm00)
+        self.m00Label.grid(row=1, column=3, sticky=W)
+
+        textm01 = "m01 = " + str(imageObject.mParameters[1])
+        self.m01Label = Label(self, text=textm01)
+        self.m01Label.grid(row=2, column=3, sticky=W)
+
+        textm10 = "m10 = " + str(imageObject.mParameters[2])
+        self.m10Label = Label(self, text=textm10)
+        self.m10Label.grid(row=3, column=3, sticky=W)
 
         textCenter = "Środek ciężkości: (x " + str(imageObject.center[0]) + ", y " + str(imageObject.center[1]) + ")"
-        self.centerLabel = Label(self, text=textCenter)
-        self.centerLabel.grid(row=3, column=2)
+        self.centerLabel = Label(self, text=textCenter, anchor=LABEL_ANCHOR)
+        self.centerLabel.grid(row=4, column=3,sticky=W)
 
         #-------------------------------------------
         textW3 = "W3 = " + str(round(imageObject.w3, 2))
         self.w3Label = Label(self, text=textW3)
-        self.w3Label.grid(row=1, column=3)
+        self.w3Label.grid(row=1, column=4,sticky=W)
+
+        textW8 = "W8 = " + str(round(imageObject.w8, 2))
+        self.w8Label = Label(self, text=textW8)
+        self.w8Label.grid(row=2, column=4,sticky=W)
 
         textW9 = "W9 = " + str(round(imageObject.w9, 2))
         self.w9Label = Label(self, text=textW9)
-        self.w9Label.grid(row=2, column=3)
+        self.w9Label.grid(row=3, column=4,sticky=W)
+
+        textW10 = "W10 = " + str(round(imageObject.w10, 2))
+        self.w10Label = Label(self, text=textW10)
+        self.w10Label.grid(row=4, column=4)
 
 
 def calcObjectSurface(imageArray):
@@ -234,8 +293,8 @@ class ListView(tk.Frame):
         super().__init__(parent)
         counter = 0
 
-        for imageArray in detectedObjects:
-            _array = np.array(imageArray, dtype=np.uint8)
+        for lobject in detectedObjects:
+            _array = np.array(lobject.image, dtype=np.uint8)
             _edgeArray = filters.roberts(_array)
             _edgeArray = prettyWhite(_edgeArray)
 
@@ -245,10 +304,12 @@ class ListView(tk.Frame):
             _imageSize = _image.size
             _surfaceArea = calcObjectSurface(_array)
             _circuit = calcObjectSurface(_edgeArray)
+            # _LArray = getL(_array)
 
             centerObject = findCenter(_image)
             _image = centerObject[0]
             _centerCoords = centerObject[1]
+            _mParameters = centerObject[2]
 
             _imageComponent = ImageTk.PhotoImage(_image)
             _imageEdgeComponent = ImageTk.PhotoImage(_imageEdge)
@@ -256,8 +317,15 @@ class ListView(tk.Frame):
             IMAGE_ARRAY.append(_imageComponent)
             IMAGE_EDGE_ARRAY.append(_imageEdgeComponent)
 
-            imageObject = ImageObject(IMAGE_ARRAY[counter], IMAGE_EDGE_ARRAY[counter], _imageSize, _surfaceArea,
-                                      _circuit, _centerCoords)
+            imageObject = ImageObject(
+                image=IMAGE_ARRAY[counter],
+                imageEdge=IMAGE_EDGE_ARRAY[counter],
+                size=_imageSize,
+                surfaceArea=_surfaceArea,
+                circuit=_circuit,
+                center=_centerCoords,
+                lobject=lobject,
+                mParameters=_mParameters)
             self.row = ListViewRow(self, imageObject)
 
             counter += 1
@@ -271,7 +339,7 @@ class Window(object):
         self.master.title('Tytuł aplikacji')
         self.master.grid()
 
-        IMAGE_PATH = 'indeks2.bmp'
+        IMAGE_PATH = 'indeks1.bmp'
 
         # Inicjalizacja obrazka z którego chcemy korzystać
         self.orginalImage = FullImage(IMAGE_PATH)
