@@ -246,7 +246,7 @@ class ImageObject:
 
         self.w4 = surfaceArea / math.sqrt(2 * math.pi*w4sum)
 
-        w5sum = 0
+        w5sum = 1
         # for x in range(1, len(imageArray) - 1):
         #     for y in range(1, len(imageArray[0]) - 1):
         #         if imageArray[x][y] != 0:
