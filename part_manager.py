@@ -37,7 +37,7 @@ class FullImage:
         self.image = image.image
         self.imageArray = image.imageArray
         self.detectedObjects = image.detectedObjects
-        self.imageComponent = ImageTk.PhotoImage(image.image)
+        # self.imageComponent = ImageTk.PhotoImage(image.image)
 
     def labelObjects(self):
         self.imageArray = label(self.imageArray)
@@ -368,11 +368,7 @@ class Window(object):
 
         # Lista obrazków do wyboru
 
-        ttk.Button(self.left_frame, image=self.listImage1.imageComponent, command=self.on_click_image1).grid(column = 0, row = 0, sticky=N + W, pady=5)
-        ttk.Button(self.left_frame, image=self.listImage2.imageComponent, command=self.on_click_image2).grid(column = 0, row = 1, sticky=N + W, pady=5)
-        ttk.Button(self.left_frame, image=self.listImage3.imageComponent, command=self.on_click_image3).grid(column = 0, row = 2, sticky=N + W, pady=5)
-        ttk.Button(self.left_frame, image=self.listImage4.imageComponent, command=self.on_click_image4).grid(column = 0, row = 3, sticky=N + W, pady=5)
-        ttk.Button(self.left_frame, image=self.listImage5.imageComponent, command=self.on_click_image5).grid(column = 0, row = 4, sticky=N + W, pady=5)
+        self.refresh_image_state()
 
 
         # Orginalny obrazek - lewy górny róg
@@ -398,90 +394,36 @@ class Window(object):
         # idk
         self.master.mainloop()
 
-    def refresh(self):
+    def refresh_image_state(self):
+        ttk.Button(self.left_frame, image=self.listImage1.imageComponent, command=lambda:self.on_click_image(self.listImage1, 1)).grid(column = 0, row = 0, sticky=N + W, pady=5)
+        ttk.Button(self.left_frame, image=self.listImage2.imageComponent, command=lambda:self.on_click_image(self.listImage2, 2)).grid(column = 0, row = 1, sticky=N + W, pady=5)
+        ttk.Button(self.left_frame, image=self.listImage3.imageComponent, command=lambda:self.on_click_image(self.listImage3, 3)).grid(column = 0, row = 2, sticky=N + W, pady=5)
+        ttk.Button(self.left_frame, image=self.listImage4.imageComponent, command=lambda:self.on_click_image(self.listImage4, 4)).grid(column = 0, row = 3, sticky=N + W, pady=5)
+        ttk.Button(self.left_frame, image=self.listImage5.imageComponent, command=lambda:self.on_click_image(self.listImage5, 5)).grid(column = 0, row = 4, sticky=N + W, pady=5)
+
+    def refreshList(self):
         self.listView.destroy()
 
         self.listView = ListView(self.master, self.transformedImage.detectedObjects)
         self.listView.grid(row=1, column=1, pady=10, sticky=N)
 
     def on_click(self):
-        # Rozjaśnia obrazek
-        # self.transformedImage = transformImage(self.transformedImage)
-
-        # Znajduje środek obrazka
-        # self.transformedImage = findCenter(self.transformedImage)
-
-        # Wykrywa obiekty na rysunku
-        # _image = detectObjects(self.transformedImage.image)
         _image = getSmallerImages(self.transformedImage)
 
         self.transformedImage.refreshImageState(_image)
         self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas, image=self.transformedImage.imageComponent)
-        self.refresh()
+        self.refreshList()
 
-    # def on_click_image(self):
+    def on_click_image(self, image, index):
+        self.orginalImage = image
+        self.transformedImage = image
 
-    #     self.orginalImage = self.listImage1
-    #     self.transformedImage = self.listImage1
+        self.orginalImage.refreshImageState(image)
+        self.transformedImage.refreshImageState(image)
 
-    #     self.orginalImageOnCanvas = self.canvasOrginalImage.create_image(0, 0, anchor='nw',
-    #                                                                      image=self.listImage1.imageComponent)
-    #     self.parsedImageOnCanvas = self.canvasParsedImage.create_image(0, 0, anchor='nw',
-    #                                                                    image=self.transformedImage.imageComponent)
-
-    def on_click_image1(self):
-        self.orginalImage = self.listImage1
-        self.transformedImage = self.listImage1
-
-        self.orginalImageOnCanvas = self.canvasOrginalImage.create_image(0, 0, anchor='nw',
-                                                                         image=self.listImage1.imageComponent)
-        self.parsedImageOnCanvas = self.canvasParsedImage.create_image(0, 0, anchor='nw',
-                                                                       image=self.transformedImage.imageComponent)
-        # self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas,image=self.listImage1.imageComponent)
-        # self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas,image=self.listImage1.imageComponent)
-
-    def on_click_image2(self):
-        self.orginalImage = self.listImage2
-        self.transformedImage = self.listImage2
-
-        self.orginalImageOnCanvas = self.canvasOrginalImage.create_image(0, 0, anchor='nw',
-                                                                         image=self.listImage2.imageComponent)
-        self.parsedImageOnCanvas = self.canvasParsedImage.create_image(0, 0, anchor='nw',
-                                                                       image=self.transformedImage.imageComponent)
-        # self.orginalImageOnCanvas = self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas,image=self.listImage2.imageComponent)
-        # self.parsedImageOnCanvas = self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas,image=self.listImage2.imageComponent)
-
-    def on_click_image3(self):
-        self.orginalImage = self.listImage3
-        self.transformedImage = self.listImage3
-
-        self.orginalImageOnCanvas = self.canvasOrginalImage.create_image(0, 0, anchor='nw',
-                                                                         image=self.listImage3.imageComponent)
-        self.parsedImageOnCanvas = self.canvasParsedImage.create_image(0, 0, anchor='nw',
-                                                                       image=self.transformedImage.imageComponent)
-        # self.orginalImageOnCanvas = self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas,image=self.orginalImage.imageComponent)
-        # self.parsedImageOnCanvas = self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas,image=self.transformedImage.imageComponent)
-
-    def on_click_image4(self):
-        self.orginalImage = self.listImage4
-        self.transformedImage = self.listImage4
-
-        self.orginalImageOnCanvas = self.canvasOrginalImage.create_image(0, 0, anchor='nw',
-                                                                         image=self.listImage4.imageComponent)
-        self.parsedImageOnCanvas = self.canvasParsedImage.create_image(0, 0, anchor='nw',
-                                                                       image=self.transformedImage.imageComponent)
-        # self.orginalImageOnCanvas = self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas,image=self.orginalImage.imageComponent)
-        # self.parsedImageOnCanvas = self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas,image=self.transformedImage.imageComponent)
-
-
-    def on_click_image5(self):
-        self.orginalImage = self.listImage5
-        self.transformedImage = self.listImage5
-
-        self.orginalImageOnCanvas = self.canvasOrginalImage.create_image(0, 0, anchor='nw',
-                                                                         image=self.listImage5.imageComponent)
-        self.parsedImageOnCanvas = self.canvasParsedImage.create_image(0, 0, anchor='nw',
-                                                                       image=self.transformedImage.imageComponent)
+        self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas,image=image.imageComponent)
+        self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas,image=image.imageComponent)
+        self.refreshList()
         # self.orginalImageOnCanvas = self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas,image=self.orginalImage.imageComponent)
         # self.parsedImageOnCanvas = self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas,image=self.transformedImage.imageComponent)
 
