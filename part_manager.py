@@ -516,12 +516,12 @@ class Window(object):
 
         # Inicjalizacja obrazków z których chcemy korzystać
         # self.listImage1 = FullImage('ksztalty.bmp')
-        self.listImage1 = FullImage(path='indeks1.bmp')
-        self.listImage2 = FullImage(path='indeks2.bmp')
-        self.listImage3 = FullImage(path='center.bmp')
-        self.listImage4 = FullImage(path='center2.bmp')
-        self.listImage5 = FullImage(path='center3.bmp')
-        self.listImage6 = FullImage(path='center4.bmp')
+        self.listImage1 = FullImage(path='img1.bmp')
+        self.listImage2 = FullImage(path='img2.bmp')
+        self.listImage3 = FullImage(path='img3.bmp')
+        self.listImage4 = FullImage(path='img4.bmp')
+        self.listImage5 = FullImage(path='img5.bmp')
+        self.listImage6 = FullImage(path='img6.bmp')
         # self.listImage5 = FullImage('center4.bmp')
 
         self.setup_new_image(self.listImage1)
@@ -552,8 +552,10 @@ class Window(object):
         self.listView = ListView(self.elements_frame, self.transformedImage.detectedObjects)
         self.listView.grid(row=0, column=0, sticky=N, pady=10)
 
+        self.labelImageTitle = Label(self.center_frame, text=self.transformedImage.imageComponent.width())
+
         # Button - Wykonaj akcje - lewy dolny róg
-        self.button = tk.Button(self.center_frame, width=30, text='Transform', command=self.on_click)
+        self.button = tk.Button(self.center_frame, width=30, text='Indeksuj i licz', command=self.on_click)
         self.button.grid(row=0, column=1, padx=10)
 
         # idk
