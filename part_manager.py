@@ -221,7 +221,7 @@ def prettyWhite(array):
 
 
 class ImageObject:
-    def __init__(self, image, imageArray, edgeArray, imageEdge, size, surfaceArea, circuit, center, lobject, mParameters):
+    def __init__(self, image, imageArray, edgeArray, imageEdge, size, surfaceArea, circuit, center, centerToPrint, lobject, mParameters):
         self.image = image
         self.imageArray = imageArray
         self.edgeArray = edgeArray
@@ -230,10 +230,11 @@ class ImageObject:
         self.surfaceArea = surfaceArea
         self.circuit = circuit
         self.center = center
+        self.centerToPrint = centerToPrint
         self.lobject = lobject
         self.mParameters = mParameters
-        self.rmin = findSizeToCircuit(edgeArray,center[0], center[1])["min"]
-        self.rmax = findSizeToCircuit(edgeArray,center[0], center[1])["max"]
+        self.rmin = round(findSizeToCircuit(edgeArray, center[0], center[1])["min"], 2)
+        self.rmax = round(findSizeToCircuit(edgeArray, center[0], center[1])["max"], 2)
         self.w1 = 2 * math.sqrt((surfaceArea / math.pi))
         self.w2 = circuit / math.pi
         self.w3 = (circuit / (2 * math.sqrt(math.pi * surfaceArea))) - 1
@@ -252,7 +253,8 @@ class ImageObject:
         #         if imageArray[x][y] != 0:
         #             w5sum += findSizeToCircuit(edgeArray, x, y)["min"]
 
-        self.w5 = pow(surfaceArea, 3) / pow(w5sum, 2)
+        # self.w5 = pow(surfaceArea, 3) / pow(w5sum, 2)
+        self.w5 = 0
 
         w6sum1 = 0
         w6sum2 = 0
@@ -281,6 +283,7 @@ class ListViewRow(tk.Frame):
         self.columnconfigure(1, minsize=120)
         self.columnconfigure(2, minsize=200)
         self.columnconfigure(3, minsize=250)
+        self.columnconfigure(4, minsize=250)
 
         self.titleLabel = Label(self, text="Znaleziony obiekt " + str(index + 1))
         self.titleLabel.grid(row=0, column=0, columnspan=2, sticky=W)
@@ -336,7 +339,7 @@ class ListViewRow(tk.Frame):
         self.rmaxlabel = Label(self, text=textRmax)
         self.rmaxlabel.grid(row=5, column=3, sticky=NW)
 
-        textCenter = "Środek ciężkości: (x " + str(imageObject.center[0]) + ", y " + str(imageObject.center[1]) + ")"
+        textCenter = "Środek ciężkości: (x " + str(imageObject.centerToPrint[0]) + ", y " + str(imageObject.centerToPrint[1]) + ")"
         self.centerLabel = Label(self, text=textCenter)
         self.centerLabel.grid(row=6, column=3, sticky=NW)
 
@@ -391,7 +394,13 @@ class ListViewRow(tk.Frame):
         self.m01Label.config(bg="#eeeeee")
         self.m10Label.config(bg="#eeeeee")
         self.centerLabel.config(bg="#eeeeee")
+        self.w1Label.config(bg="#eeeeee")
+        self.w2Label.config(bg="#eeeeee")
         self.w3Label.config(bg="#eeeeee")
+        self.w4Label.config(bg="#eeeeee")
+        self.w5Label.config(bg="#eeeeee")
+        self.w6Label.config(bg="#eeeeee")
+        self.w7Label.config(bg="#eeeeee")
         self.w8Label.config(bg="#eeeeee")
         self.w9Label.config(bg="#eeeeee")
         self.w10Label.config(bg="#eeeeee")
@@ -399,18 +408,20 @@ class ListViewRow(tk.Frame):
 
 def findSizeToCircuit(imageCircuitArray, fromX, fromY):
     surface = 0
+
     minSize = 99999
     maxSize = 0
 
     for x in range(0, len(imageCircuitArray) - 1):
         for y in range(0, len(imageCircuitArray[0]) - 1):
-            if imageCircuitArray[x, y] != 0:
+            if imageCircuitArray[x, y] == 255:
                 localSize = math.sqrt(pow(x - fromX, 2) + pow(y - fromY, 2))
                 if localSize < minSize:
                     minSize = localSize
                 if localSize > maxSize:
                     maxSize = localSize
 
+    print( fromX, fromY , "MIN: ", minSize, "MAX: ", maxSize)
     return {
         "max": maxSize,
         "min": minSize
@@ -428,17 +439,17 @@ class ListView(tk.Frame):
         IMAGE_ARRAY.clear()
         IMAGE_EDGE_ARRAY.clear()
 
-        self.elements_frame = Frame(self,  width=800, height=780, bg='#eeeeee')
+        self.elements_frame = Frame(self,  width=1100, height=780, bg='#eeeeee')
         self.elements_frame.grid(row=1, column=1, pady=20, padx=20, sticky=N)
 
-        self.elements_content = Frame(self, width=750, height=650, bg='#eeeeee')
+        self.elements_content = Frame(self, width=1050, height=650, bg='#eeeeee')
         self.elements_content.grid(row=1, column=1, pady=20, padx=20, sticky=N)
 
         for lobject in detectedObjects:
             _array = np.array(lobject.image, dtype=np.uint8)
             _regionprops = regionprops(_array)
-            print("Centeroid", _regionprops[0]['Area'])
-            print("Area", _regionprops[0]['Centroid'])
+            print("Area", _regionprops[0]['Area'])
+            print("Centeroid", _regionprops[0]['Centroid'][0])
             print("Perimeter", )
             _edgeArray = filters.roberts(_array).astype('uint8')
             _edgeArray = prettyWhite(_edgeArray)
@@ -453,7 +464,8 @@ class ListView(tk.Frame):
 
             centerObject = findCenter(_image)
             _image = centerObject[0]
-            _centerCoords = centerObject[1]
+            _centerCoordsToPrint = centerObject[1]
+            _centerCoords = [round(_regionprops[0]['Centroid'][0]), round(_regionprops[0]['Centroid'][1])]
             _mParameters = centerObject[2]
 
             _imageComponent = ImageTk.PhotoImage(_image)
@@ -471,6 +483,7 @@ class ListView(tk.Frame):
                 surfaceArea=_surfaceArea,
                 circuit=_circuit,
                 center=_centerCoords,
+                centerToPrint=_centerCoordsToPrint,
                 lobject=lobject,
                 mParameters=_mParameters)
             self.row = ListViewRow(self.elements_content, imageObject, counter)
