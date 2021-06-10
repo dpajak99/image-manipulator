@@ -1,13 +1,10 @@
 from tkinter import *
 
-import PIL
 from PIL import Image, ImageTk
 from numpy import asarray
 
 from skimage.measure import label, regionprops
-import copy
 from skimage import filters
-from skimage import io
 
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -15,67 +12,23 @@ import numpy as np
 import math
 
 
+# #####################
+# Słowem wstępu
+# #####################
+# Ta aplikacja była naszym pierwszym spotkaniem z językiem python
+# pewnie wiele rzeczy dałoby się zrobić wydajniej / lepiej.
+# Do osób, które w przyszłości potencjalnie mogłyby rozwijać ten projekt
+# Przepraszamy za bałagan - w zamian postaramy się jak najlepiej wytłumaczyć każdą linijkę kodu
+
+
 # TODO - Rozdzielić na pliki
 # TODO - Dopracować layout
+# TODO - Scrollbar w liście itemów
 # TODO - Lista dostępnych obrazków / Importowanie własnego?
 # TODO - Optymaliiiiiiizacja
 # TODO - Opis
 
-class FullImage:
-    def __init__(self, path=0, img=0):
-        if path != 0:
-            self.path = path
-            self.image = Image.open(path)
-            # self.image = self.image.resize((128,128), Image.ANTIALIAS)
-            self.imageComponent = ImageTk.PhotoImage(self.image)
-            self.imageArray = self.getImageArray()
-            self.detectedObjects = []
-        elif img != 0:
-            self.path = img.path
-            self.image = img.image
-            # self.image = self.image.resize((128,128), Image.ANTIALIAS)
-            self.imageComponent = img.imageComponent
-            self.imageArray = img.imageArray.copy()
-            self.detectedObjects = img.detectedObjects.copy()
-
-    def getImageArray(self):
-        _imageArray = asarray(self.image).copy()
-        _imageArray = _imageArray.astype('uint8')
-        _imageArray.setflags(write=True)
-        return _imageArray
-
-    def refreshImageState(self, image):
-        self.image = image.image
-        self.imageArray = image.imageArray
-        self.detectedObjects = image.detectedObjects
-        self.imageComponent = image.imageComponent
-
-    def labelObjects(self):
-        self.imageArray = label(self.imageArray)
-        self.imageArray = self.imageArray.astype('uint8')
-
-    def getImageColors(self):
-        _allColors = []
-
-        for x in range(1, self.image.size[1] - 1):
-            for y in range(1, self.image.size[0] - 1):
-                _pixel = self.imageArray[x, y]
-                if _pixel != 0 and _pixel not in _allColors:
-                    _allColors.append(_pixel)
-        return _allColors
-
-    def prettyColors(self):
-        _allColors = self.getImageColors()
-
-        _jump = int(200 / len(_allColors))
-        for x in range(1, self.image.size[1] - 1):
-            for y in range(1, self.image.size[0] - 1):
-                if (self.imageArray[x, y] * _jump) > 255:
-                    print("Error: Poza zakresem")
-                if self.imageArray[x, y] != 0:
-                    self.imageArray[x, y] = self.imageArray[x, y] * _jump + 50
-
-
+# Jako argument przyjmuje instancję FullImage. Uruchamia to opcję wyszukiwania obiektów w obrazie
 def getSmallerImages(image):
     image.labelObjects()
     image.prettyColors()
@@ -85,14 +38,7 @@ def getSmallerImages(image):
     return image
 
 
-class ImageL:
-    def __init__(self, image, lv, lh, lmax):
-        self.image = image
-        self.lv = lv
-        self.lh = lh
-        self.lmax = lmax
-
-
+# Jako argument przyjmuje instancję FullImage. Zwraca tablicę znalezionych obiektów w obrazie
 def getImageObjects(image):
     _allColors = image.getImageColors()
     _objectArray = []
@@ -159,7 +105,17 @@ def getImageObjects(image):
     return _objectArray
 
 
-# Wykrywa środek ciężkości
+# Przyjmuje jako argument obraz jako tablicę. Zamienia wszystkie wartości różne od zera na kolor biały
+def prettyWhite(array):
+    array = array.astype('uint8')
+    for x in range(1, len(array) - 1):
+        for y in range(1, len(array[0]) - 1):
+            if array[x, y] != 0:
+                array[x, y] = 255
+    return array
+
+
+# Wykrywa środek ciężkości obiektu. Jako argument przyjmuje TkInter Image
 def findCenter(image):
     imageArray = asarray(image).copy()
     imageArray = imageArray.astype('uint8')
@@ -206,47 +162,166 @@ def findCenter(image):
             if imageArray[x, y] == 1:
                 imageArray[x, y] = 255
 
-    # TODO Poprawić jakoś tą "L" żeby było bardziej unikalne
+    # TODO Poprawić jakoś tą "L" żeby było bardziej uniwersalne - RGB, RGBA etc
     transformedImage = Image.fromarray(imageArray, "L")
     return transformedImage, [i, j], [m00, m01, m10]
 
+# Znajdź odległość do obwodu obiektu na podstawie podanych koordynatów
+def findSizeToCircuit(imageCircuitArray, fromX, fromY):
+    surface = 0
 
-def prettyWhite(array):
-    array = array.astype('uint8')
-    for x in range(1, len(array) - 1):
-        for y in range(1, len(array[0]) - 1):
-            if array[x, y] != 0:
-                array[x, y] = 255
-    return array
+    minSize = 99999
+    maxSize = 0
+
+    for x in range(0, len(imageCircuitArray) - 1):
+        for y in range(0, len(imageCircuitArray[0]) - 1):
+            if imageCircuitArray[x, y] == 255:
+                localSize = math.sqrt(pow(x - fromX, 2) + pow(y - fromY, 2))
+                if localSize < minSize:
+                    minSize = localSize
+                if localSize > maxSize:
+                    maxSize = localSize
+
+    print(fromX, fromY, "MIN: ", minSize, "MAX: ", maxSize)
+    return {
+        "max": maxSize,
+        "min": minSize
+    }
 
 
-class ImageObject:
-    def __init__(self, image, imageArray, edgeArray, imageEdge, size, surfaceArea, circuit, center, centerToPrint, lobject, mParameters):
+# Klasa przechowująca dane pojedynczego obrazka
+# - ścieżka obrazu
+# - obraz
+# - TKInter Image Component
+# - imageArray
+# - lista wykrytych obiektów
+#
+# Są dwa sposoby na konstruktor tej klasy
+# Pierwszy przyjmuje tylko ścieżkę do obrazka, natomiast drugi
+# przyjmuje instancję samego siebie (deep copy)
+
+
+class FullImage:
+    def __init__(self, path=0, img=0):
+
+        # Pierwszy sposób na stworzenie instancji FullImage - konstruktor ze ścieżką
+        if path != 0:
+            self.path = path
+            self.image = Image.open(path)
+            self.imageComponent = ImageTk.PhotoImage(self.image)
+            self.imageArray = self.getImageArray()
+            self.detectedObjects = []
+
+        # Drugi sposób na stworzenie instancji FullImage - konstruktor z obiektem samego siebie - deep copy
+        elif img != 0:
+            self.path = img.path
+            self.image = img.image
+            self.imageComponent = img.imageComponent
+            self.imageArray = img.imageArray.copy()
+            self.detectedObjects = img.detectedObjects.copy()
+
+    # Zwraca obraz obiektu jako tablica, oraz aktualizuje ten parametr klasy
+    def getImageArray(self):
+        _imageArray = asarray(self.image).copy()
+        _imageArray = _imageArray.astype('uint8')
+        _imageArray.setflags(write=True)
+        return _imageArray
+
+    # Jako argument przyjmuje instancję samego siebie. Różnica pomiędzy konstruktorem z instancją a poniższą metodą
+    # jest taka, że tutaj tylko aktualizujemy parametry a tam tworzymy nowy obiekt
+    def refreshImageState(self, image):
+        self.image = image.image
+        self.imageArray = image.imageArray
+        self.detectedObjects = image.detectedObjects
+        self.imageComponent = image.imageComponent
+
+    # Wykrywa obiekty w obrazie na podstawie obrazu jako tablica. Aktualizuje obecną tablicę na zindeksowaną
+    def labelObjects(self):
+        self.imageArray = label(self.imageArray)
+        self.imageArray = self.imageArray.astype('uint8')
+
+    # Wyszukuje i zwraca wszystkie kolory istniejące na obrazie (potrzebne do ładnego pokolorowania zaindeksowanych
+    # części obrazów
+    def getImageColors(self):
+        _allColors = []
+
+        for x in range(1, self.image.size[1] - 1):
+            for y in range(1, self.image.size[0] - 1):
+                _pixel = self.imageArray[x, y]
+                if _pixel != 0 and _pixel not in _allColors:
+                    _allColors.append(_pixel)
+        return _allColors
+
+    # Koloruje obiekty w tablicy obrazu aktualizując ją
+    def prettyColors(self):
+        _allColors = self.getImageColors()
+
+        _jump = int(200 / len(_allColors))
+        for x in range(1, self.image.size[1] - 1):
+            for y in range(1, self.image.size[0] - 1):
+                if (self.imageArray[x, y] * _jump) > 255:
+                    print("Error: Poza zakresem")
+                if self.imageArray[x, y] != 0:
+                    self.imageArray[x, y] = self.imageArray[x, y] * _jump + 50
+
+
+# przechowuje parametry lv, lh i lmax obrazka
+class ImageL:
+    def __init__(self, image, lv, lh, lmax):
         self.image = image
+        self.lv = lv
+        self.lh = lh
+        self.lmax = lmax
+
+#  Przechowuje i oblicza wszystkie wyświetlane parametry obiektu
+class ImageObject:
+    def __init__(self, image, imageArray, edgeArray, imageEdge, size, surfaceArea, circuit, center, centerToPrint,
+                 lobject, mParameters):
+        # Obraz
+        self.image = image
+        # Tablica obrazu
         self.imageArray = imageArray
+        # Tablica z obwodem obrazu
         self.edgeArray = edgeArray
+        # Obraz z obwodem
         self.imageEdges = imageEdge
+        # Rozmiar obrazu
         self.size = size
+        # Pole powierzchni
         self.surfaceArea = surfaceArea
+        # Obwód
         self.circuit = circuit
+        # Ręcznie obliczone koordynaty obrazka
         self.center = center
+        # Koordynaty wyliczone przez bibliotekę
         self.centerToPrint = centerToPrint
+        # Obiekt lv, lh, lmax
         self.lobject = lobject
+        # Przechowuje parametry momentów geometrycznych
         self.mParameters = mParameters
+        # Najmniejsza odległość od środka obiektu do obwodu
         self.rmin = round(findSizeToCircuit(edgeArray, center[0], center[1])["min"], 2)
+        # Największa odległość od środka obiektu do obwodu
         self.rmax = round(findSizeToCircuit(edgeArray, center[0], center[1])["max"], 2)
+        # Wartość współczynnika w1
         self.w1 = 2 * math.sqrt((surfaceArea / math.pi))
+        # Wartość współczynnika w2
         self.w2 = circuit / math.pi
+        # Wartość współczynnika w3
         self.w3 = (circuit / (2 * math.sqrt(math.pi * surfaceArea))) - 1
 
+        # obliczanie E potrzebnego do wartości współczynnika w4
         w4sum = 0
         for x in range(1, len(edgeArray) - 1):
             for y in range(1, len(edgeArray[0]) - 1):
                 if edgeArray[x][y] != 0:
                     w4sum += (pow(x - center[0], 2) + pow(y - center[1], 2))
 
-        self.w4 = surfaceArea / math.sqrt(2 * math.pi*w4sum)
+        # Wartość współczynnika w4
+        self.w4 = surfaceArea / math.sqrt(2 * math.pi * w4sum)
 
+        # zakomentowane ze względu na czasochłonność operacji
+        # Wartość współczynnika w5
         w5sum = 1
         # for x in range(1, len(imageArray) - 1):
         #     for y in range(1, len(imageArray[0]) - 1):
@@ -256,6 +331,7 @@ class ImageObject:
         # self.w5 = pow(surfaceArea, 3) / pow(w5sum, 2)
         self.w5 = 0
 
+        # obliczanie wartości E dla współczynnika w6
         w6sum1 = 0
         w6sum2 = 0
         for x in range(1, len(imageArray) - 1):
@@ -264,20 +340,24 @@ class ImageObject:
                     w6sum1 += math.sqrt(pow(x - center[0], 2) + pow(y - center[1], 2))
                     w6sum2 += (pow(x - center[0], 2) + pow(y - center[1], 2))
 
-        self.w6 = math.sqrt(pow(w6sum1,2) / ((circuit * w6sum2) -1))
+        # Wartość współczynnika w6
+        self.w6 = math.sqrt(pow(w6sum1, 2) / ((circuit * w6sum2) - 1))
+        # Wartość współczynnika w7
         self.w7 = self.rmin / self.rmax
+        # Wartość współczynnika w8
         self.w8 = lobject.lmax / circuit
+        # Wartość współczynnika w9
         self.w9 = (2 * math.sqrt(math.pi * surfaceArea)) / circuit
+        # Wartość współczynnika w10
         self.w10 = lobject.lh / lobject.lv
 
 
+# Graficzny element wyświetlanego pojedynczego wiersza z danymi obiektu
 class ListViewRow(tk.Frame):
     def __init__(self, parent, imageObject, index):
         super().__init__(parent)
         self.grid()
         self.configure(bg='#eeeeee')
-
-        LABEL_ANCHOR = "w"
 
         self.columnconfigure(0, minsize=120)
         self.columnconfigure(1, minsize=120)
@@ -339,7 +419,8 @@ class ListViewRow(tk.Frame):
         self.rmaxlabel = Label(self, text=textRmax)
         self.rmaxlabel.grid(row=5, column=3, sticky=NW)
 
-        textCenter = "Środek ciężkości: (x " + str(imageObject.centerToPrint[0]) + ", y " + str(imageObject.centerToPrint[1]) + ")"
+        textCenter = "Środek ciężkości: (x " + str(imageObject.centerToPrint[0]) + ", y " + str(
+            imageObject.centerToPrint[1]) + ")"
         self.centerLabel = Label(self, text=textCenter)
         self.centerLabel.grid(row=6, column=3, sticky=NW)
 
@@ -406,32 +487,15 @@ class ListViewRow(tk.Frame):
         self.w10Label.config(bg="#eeeeee")
 
 
-def findSizeToCircuit(imageCircuitArray, fromX, fromY):
-    surface = 0
-
-    minSize = 99999
-    maxSize = 0
-
-    for x in range(0, len(imageCircuitArray) - 1):
-        for y in range(0, len(imageCircuitArray[0]) - 1):
-            if imageCircuitArray[x, y] == 255:
-                localSize = math.sqrt(pow(x - fromX, 2) + pow(y - fromY, 2))
-                if localSize < minSize:
-                    minSize = localSize
-                if localSize > maxSize:
-                    maxSize = localSize
-
-    print( fromX, fromY , "MIN: ", minSize, "MAX: ", maxSize)
-    return {
-        "max": maxSize,
-        "min": minSize
-    }
-
-
+# aby obrazki w liście były widoczne, muszą mieć one stałe miejsce w pamięci
+# to jest powód dla którego te tablice muszą istnieć
 IMAGE_ARRAY = []
 IMAGE_EDGE_ARRAY = []
 
 
+# Frame dla całej wyświetlanej listy. Po kliknięciu w button "Indeksuj i licz"
+# jest ona przebudowywana na nowo
+# TODO - ScrollView - nie udało nam się go zrobić
 class ListView(tk.Frame):
     def __init__(self, parent, detectedObjects):
         super().__init__(parent)
@@ -439,12 +503,13 @@ class ListView(tk.Frame):
         IMAGE_ARRAY.clear()
         IMAGE_EDGE_ARRAY.clear()
 
-        self.elements_frame = Frame(self,  width=1100, height=780, bg='#eeeeee')
+        self.elements_frame = Frame(self, width=1100, height=780, bg='#eeeeee')
         self.elements_frame.grid(row=1, column=1, pady=20, padx=20, sticky=N)
 
         self.elements_content = Frame(self, width=1050, height=650, bg='#eeeeee')
         self.elements_content.grid(row=1, column=1, pady=20, padx=20, sticky=N)
 
+        # dla każdego obiektu w znalezionych obiektach wylicz wartości i stwórz wiersz
         for lobject in detectedObjects:
             _array = np.array(lobject.image, dtype=np.uint8)
             _regionprops = regionprops(_array)
@@ -460,7 +525,6 @@ class ListView(tk.Frame):
             _imageSize = _image.size
             _surfaceArea = round(_regionprops[0]['Area'])
             _circuit = round(_regionprops[0]['Perimeter'])
-            # _LArray = getL(_array)
 
             centerObject = findCenter(_image)
             _image = centerObject[0]
@@ -491,15 +555,13 @@ class ListView(tk.Frame):
             counter += 1
 
 
-# TODO Obsługa RGB, RGBA itd...
+# Główna klasa aplikacji. Odpowiada za wszystko co widzimy
 class Window(object):
 
     def __init__(self):
         self.master = tk.Tk()
-        self.master.title('Tytuł aplikacji')
+        self.master.title('Współczynniki kształtu, momenty geometryczne, wykrywanie centroidów')
         self.master.maxsize(1500, 1000)
-
-        # self.master.geometry("1500x1000")
 
         # Podział
         self.left_frame = Frame(self.master, width=190, height=800)
@@ -511,24 +573,19 @@ class Window(object):
         self.elements_frame = Frame(self.master, width=800, height=780)
         self.elements_frame.grid(row=1, column=1, pady=10, sticky=N)
 
-        # self.right_frame = Frame(self.master, width=190, height=800, bg='grey')
-        # self.right_frame.grid(rowspan=2, column=2, padx=10, pady=5, sticky=N)
 
         # Inicjalizacja obrazków z których chcemy korzystać
-        # self.listImage1 = FullImage('ksztalty.bmp')
         self.listImage1 = FullImage(path='img1.bmp')
         self.listImage2 = FullImage(path='img2.bmp')
         self.listImage3 = FullImage(path='img3.bmp')
         self.listImage4 = FullImage(path='img4.bmp')
         self.listImage5 = FullImage(path='img5.bmp')
         self.listImage6 = FullImage(path='img6.bmp')
-        # self.listImage5 = FullImage('center4.bmp')
 
         self.setup_new_image(self.listImage1)
 
-        # Lista obrazków do wyboru
-
-        self.refresh_image_state()
+        # Dodaj listenery do obrazków w liście z lewej strony aplikacji
+        self.setUpImageButtons()
 
         # Orginalny obrazek - lewy górny róg
         self.canvasOrginalImage = tk.Canvas(self.center_frame, width=128, height=128)
@@ -552,8 +609,6 @@ class Window(object):
         self.listView = ListView(self.elements_frame, self.transformedImage.detectedObjects)
         self.listView.grid(row=0, column=0, sticky=N, pady=10)
 
-        self.labelImageTitle = Label(self.center_frame, text=self.transformedImage.imageComponent.width())
-
         # Button - Wykonaj akcje - lewy dolny róg
         self.button = tk.Button(self.center_frame, width=30, text='Indeksuj i licz', command=self.on_click)
         self.button.grid(row=0, column=1, padx=10)
@@ -561,7 +616,8 @@ class Window(object):
         # idk
         self.master.mainloop()
 
-    def refresh_image_state(self):
+    # Dodaj listenery do obrazków w liście z lewej strony aplikacji
+    def setUpImageButtons(self):
         ttk.Button(self.left_frame, image=self.listImage1.imageComponent,
                    command=lambda: self.on_click_image(self.listImage1, 1)).grid(column=0, row=0, sticky=N + W, pady=5)
         ttk.Button(self.left_frame, image=self.listImage2.imageComponent,
@@ -575,12 +631,14 @@ class Window(object):
         ttk.Button(self.left_frame, image=self.listImage6.imageComponent,
                    command=lambda: self.on_click_image(self.listImage6, 5)).grid(column=0, row=5, sticky=N + W, pady=5)
 
+    # Przeładuj listę (wykonywane po wyyborze nowego obrazka)
     def refreshList(self):
         self.listView.destroy()
 
         self.listView = ListView(self.master, self.transformedImage.detectedObjects)
         self.listView.grid(row=1, column=1, pady=10, sticky=N)
 
+    # akcja wykonywana po wyborze nowego obrazka. Aktualizuje nagłówek aplikacji
     def on_click(self):
         _image = FullImage(img=getSmallerImages(self.transformedImage))
 
@@ -603,8 +661,6 @@ class Window(object):
         self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas, image=newImage.imageComponent)
         self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas, image=newImage.imageComponent)
         self.refreshList()
-        # self.orginalImageOnCanvas = self.canvasOrginalImage.itemconfig(self.orginalImageOnCanvas,image=self.orginalImage.imageComponent)
-        # self.parsedImageOnCanvas = self.canvasParsedImage.itemconfig(self.parsedImageOnCanvas,image=self.transformedImage.imageComponent)
 
 
 Window()
