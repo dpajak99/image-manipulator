@@ -1,26 +1,12 @@
-# Part Manager
+# 🎓 Image Manipulator - University Project
+![Showcase](./assets/video.gif)
 
-> Python/Tkinter desktop GUI app to manage customer computer parts. This app uses Sqlite3 to store data
+## Description
+Demonstrator for determining the action of the form factor, geometric moments and determining the center of gravity.
 
-## Usage
+## Technologies
+This project was developed using Python
 
-```bash
-# Install dependencies
-pipenv install
+---
 
-# Run script
-python part_manager.py
-
-
-# Compiled with Pyinstaller
-
-# Windows
-pyinstaller --onefile --windowed part_manager.py
-
-# MacOS
-pyinstaller --onefile --add-binary='/System/Library/Frameworks/Tk.framework/Tk':'tk' --add-binary='/System/Library/Frameworks/Tcl.framework/Tcl':'tcl' part_manager.py
-```
-
-- Version: 1.0.0
-- License: MIT
-- Author: Brad Traversy
+*This project is published solely for archival purposes.*
